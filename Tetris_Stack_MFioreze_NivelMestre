@@ -1,0 +1,226 @@
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#define TAM_FILA 5
+#define TAM_PILHA 3
+
+// ----------------------------- //
+//    ESTRUTURA DA PEÇA         //
+// ----------------------------- //
+typedef struct {
+    char nome;
+    int id;
+    int valido;
+} Peca;
+
+// ----------------------------- //
+//    ESTADOS PARA UNDO         //
+// ----------------------------- //
+typedef struct {
+    Peca fila[TAM_FILA];
+    int ini, fim;
+
+    Peca pilha[TAM_PILHA];
+    int topo;
+} Estado;
+
+// ----------------------------- //
+//       VARIÁVEIS GLOBAIS      //
+// ----------------------------- //
+Peca fila[TAM_FILA];
+Peca pilha[TAM_PILHA];
+
+int ini = 0, fim = 0;       // controle da fila circular
+int topo = -1;             // controle da pilha
+
+Estado ultimoEstado;       // para desfazer
+
+// ----------------------------- //
+//   FUNÇÃO PARA SALVAR ESTADO  //
+// ----------------------------- //
+void salvarEstado() {
+    memcpy(ultimoEstado.fila, fila, sizeof(fila));
+    ultimoEstado.ini = ini;
+    ultimoEstado.fim = fim;
+
+    memcpy(ultimoEstado.pilha, pilha, sizeof(pilha));
+    ultimoEstado.topo = topo;
+}
+
+// ----------------------------- //
+//   FUNÇÃO PARA RESTAURAR UND0  //
+// ----------------------------- //
+void desfazer() {
+    memcpy(fila, ultimoEstado.fila, sizeof(fila));
+    ini = ultimoEstado.ini;
+    fim = ultimoEstado.fim;
+
+    memcpy(pilha, ultimoEstado.pilha, sizeof(pilha));
+    topo = ultimoEstado.topo;
+
+    printf("\n Desfeito com sucesso!\n");
+}
+
+// ----------------------------- //
+//     GERAR PEÇA AUTOMÁTICA    //
+// ----------------------------- //
+Peca gerarPeca() {
+    char tipos[] = {'I','O','T','L','S','Z','J'};
+    Peca p;
+    p.nome = tipos[rand() % 7];
+    p.id = rand() % 10000;
+    p.valido = 1;
+    return p;
+}
+
+// ----------------------------- //
+//        FILA (enqueue)         //
+// ----------------------------- //
+void enqueue() {
+    if (fila[fim].valido) return; // fila sempre cheia
+
+    fila[fim] = gerarPeca();
+    fila[fim].valido = 1;
+    fim = (fim + 1) % TAM_FILA;
+}
+
+// ----------------------------- //
+//        FILA (dequeue)         //
+// ----------------------------- //
+Peca dequeue() {
+    Peca removida = fila[ini];
+    fila[ini].valido = 0;
+    ini = (ini + 1) % TAM_FILA;
+    enqueue(); // repõe automaticamente
+    return removida;
+}
+
+// ----------------------------- //
+//        PILHA (push)           //
+// ----------------------------- //
+void push(Peca p) {
+    if (topo == TAM_PILHA - 1) {
+        printf("\n⚠ Pilha cheia! Não é possível reservar.\n");
+        return;
+    }
+    pilha[++topo] = p;
+}
+
+// ----------------------------- //
+//        PILHA (pop)            //
+// ----------------------------- //
+Peca pop() {
+    if (topo == -1) {
+        Peca invalida; invalida.valido = 0;
+        return invalida;
+    }
+    return pilha[topo--];
+}
+
+// ----------------------------- //
+//   TROCA pilha fila          //
+// ----------------------------- //
+void trocar() {
+    if (topo == -1) {
+        printf("\n⚠ Pilha vazia! Não há peça para trocar.\n");
+        return;
+    }
+
+    Peca temp = pilha[topo];
+    pilha[topo] = fila[ini];
+    fila[ini] = temp;
+}
+
+// ----------------------------- //
+//     INVERTER FILA E PILHA     //
+// ----------------------------- //
+void inverter() {
+    Peca tempFila[TAM_FILA];
+    Peca tempPilha[TAM_PILHA];
+
+    memcpy(tempFila, fila, sizeof(fila));
+    memcpy(tempPilha, pilha, sizeof(pilha));
+
+    // Inverte
+    memcpy(fila, tempPilha, sizeof(tempPilha));
+    memcpy(pilha, tempFila, sizeof(tempFila));
+
+    // Ajusta índices
+    ini = 0;
+    fim = TAM_FILA - 1;
+    topo = TAM_FILA - 1;
+}
+
+// ----------------------------- //
+//       EXIBIR FILA/PILHA       //
+// ----------------------------- //
+void exibirFila() {
+    printf("\n FILA: ");
+    for (int i = 0; i < TAM_FILA; i++) {
+        int idx = (ini + i) % TAM_FILA;
+        printf("[%c:%d] ", fila[idx].nome, fila[idx].id);
+    }
+    printf("\n");
+}
+
+void exibirPilha() {
+    printf("\n PILHA: ");
+    if (topo == -1) {
+        printf("(vazia)\n");
+        return;
+    }
+    for (int i = topo; i >= 0; i--) {
+        printf("[%c:%d] ", pilha[i].nome, pilha[i].id);
+    }
+    printf("\n");
+}
+
+// ----------------------------- //
+//       MENU PRINCIPAL          //
+// ----------------------------- //
+int main() {
+    srand(time(NULL));
+
+    // Inicializa a fila com 5 peças
+    for (int i = 0; i < TAM_FILA; i++) {
+        fila[i] = gerarPeca();
+        fila[i].valido = 1;
+    }
+
+    int opc;
+    do {
+        exibirFila();
+        exibirPilha();
+
+        printf("\n====== MENU NÍVEL MESTRE ======\n");
+        printf("1 - Jogar peça\n");
+        printf("2 - Reservar peça\n");
+        printf("3 - Usar peça reservada\n");
+        printf("4 - Trocar topo frente\n");
+        printf("5 - Desfazer última ação\n");
+        printf("6 - Inverter fila com pilha\n");
+        printf("0 - Sair\n");
+        printf("Escolha: ");
+        scanf("%d", &opc);
+
+        salvarEstado(); // salvar antes de cada ação
+
+        switch (opc) {
+            case 1: {
+                Peca jogada = dequeue();
+                printf("\n Jogou peça [%c:%d]\n", jogada.nome, jogada.id);
+            } break;
+
+            case 2: {
+                Peca reservada = dequeue();
+                push(reservada);
+                printf("\n Reservada peça [%c:%d]\n", reservada.nome, reservada.id);
+            } break;
+
+            case 3: {
+                Peca usada = pop();
+                if (!usada.valido) {
